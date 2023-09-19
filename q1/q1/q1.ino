@@ -45,7 +45,7 @@ int main(void) {
   while (1) {
 
     if (button_press_flag) {
-      if ((current_oneHundred_millis - 0) > 5) {
+      if (current_oneHundred_millis > 5) {
         current_oneHundred_millis = 0;
         button_pressed = !button_pressed;
       } 

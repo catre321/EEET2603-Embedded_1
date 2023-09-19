@@ -7,8 +7,6 @@ volatile uint8_t led_state = 1;
 volatile bool reverse_sweep = false;
 
 volatile uint16_t current_millis = 0;
-volatile uint16_t store_millis_gear = 0;
-volatile uint16_t store_millis_direction = 0;
 volatile uint16_t store_millis_led = 0;
 
 volatile bool gear_button_flag = false;
@@ -60,7 +58,7 @@ void sweep_LED() {
 // }
 
 void press_gear_button() {
-  if ((current_millis - 0) > 500) {
+  if (current_millis > 500) {
     current_millis = 0;
     gear_pressed_time++;
     if (gear_pressed_time > 3) {
@@ -78,7 +76,7 @@ void press_gear_button() {
 // }
 
 void press_direction_button() {
-  if ((current_millis - 0) > 500) {
+  if (current_millis > 500) {
     current_millis = 0;
     reverse_sweep = !reverse_sweep;
   }

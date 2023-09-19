@@ -59,7 +59,7 @@ void turn_off_all_GPIO() {
 }
 
 void init_send_data() {
-  if ((current_oneHundred_millis - 0) > 5) {
+  if (current_oneHundred_millis > 5) {
     current_oneHundred_millis = 0;
 
     PORTB |= (1 << PORTB1);  // set RST high immediately
@@ -68,7 +68,6 @@ void init_send_data() {
     TCNT1 = 0;               //reset counter1
     current_low = true;
     button_pressed = true;
-    button_press_flag = false;
     falling_edge = true;  // to set DAT at bit 0
     send = true;
     timer1_flag = false;
@@ -77,7 +76,9 @@ void init_send_data() {
 }
 
 void generate_PWM_PORTB2_cycles() {
-  if (button_pressed) {
+  if (timer1_flag != last_timer1_flag) {
+    last_timer1_flag = timer1_flag;
+
     if (current_low) {
       PORTB |= (1 << PORTB2);  // rasing edge
       current_low = false;
@@ -140,8 +141,7 @@ int main(void) {
       turn_off_all_GPIO();
     }
 
-    if (timer1_flag != last_timer1_flag) {
-      last_timer1_flag = timer1_flag;
+    if (button_pressed) {
       generate_PWM_PORTB2_cycles();
     }
 
@@ -150,10 +150,9 @@ int main(void) {
     }
 
     if (button_press_flag) {
+      button_press_flag = false;  // reset flag
       if (!button_pressed) {
         init_send_data();
-      } else {
-        button_press_flag = false;
       }
     }
   }

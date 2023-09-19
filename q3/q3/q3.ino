@@ -44,7 +44,7 @@ void turn_off_all_GPIO() {
 }
 
 void init_timer1_GPIO() {
-  if ((current_oneHundred_millis - 0) > 5) {
+  if (current_oneHundred_millis > 5) {
     current_oneHundred_millis = 0;
 
     PORTB |= (1 << PORTB1);  // set PORTB1 high immediately
@@ -52,7 +52,6 @@ void init_timer1_GPIO() {
     TCNT1 = 0;               // reset counter1
     current_low = true;
     button_pressed = true;
-    button_press_flag = false;
     timer1_flag = false;
     last_timer1_flag = false;
   }
@@ -99,12 +98,11 @@ int main(void) {
     }
 
     if (button_press_flag) {
+      button_press_flag = false;
       if (!button_pressed) {
         init_timer1_GPIO();
-      } else {
-        button_press_flag = false;
       }
-    }    
+    }
   }
 }
 
