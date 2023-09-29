@@ -1,13 +1,19 @@
 #include <avr/io.h>
 #include <avr/interrupt.h>
 
+/*
+  3_LED = PORTB0 - PORTB2
+  GEAR_BUTTON = PORTD2(INT0)
+  DIRECTION_BUTTON = PORTD3(INT1)
+*/
+
 volatile uint16_t interval = 125;
 volatile uint8_t gear_pressed_time = 1;
 volatile uint8_t led_state = 1;
 volatile bool reverse_sweep = false;
 
-volatile uint16_t current_millis = 0;
-volatile uint16_t store_millis_led = 0;
+volatile uint16_t current_millis_button = 0;
+volatile uint16_t current_millis_led = 0;
 
 volatile bool gear_button_flag = false;
 volatile bool direction_button_flag = false;
@@ -46,38 +52,23 @@ void sweep_LED() {
   }
 }
 
-// void press_gear_button() {
-//   if ((current_millis - store_millis_gear) > 500) {
-//     store_millis_gear = current_millis;
-//     gear_pressed_time++;
-//     if (gear_pressed_time > 3) {
-//       gear_pressed_time = 1;
-//     }
-//     interval = 125 * gear_pressed_time;
-//   }
-// }
-
 void press_gear_button() {
-  if (current_millis > 500) {
-    current_millis = 0;
+  if (current_millis_button > 500) {
+    current_millis_button = 0;
     gear_pressed_time++;
     if (gear_pressed_time > 3) {
       gear_pressed_time = 1;
+      interval = 125;
+      return;
     }
-    interval = 125 * gear_pressed_time;
+    // interval = 125 * gear_pressed_time;
+    interval = interval * 2;
   }
 }
 
-// void press_direction_button() {
-//   if ((current_millis - store_millis_direction) > 500) {
-//     store_millis_direction = current_millis;
-//     reverse_sweep = !reverse_sweep;
-//   }
-// }
-
 void press_direction_button() {
-  if (current_millis > 500) {
-    current_millis = 0;
+  if (current_millis_button > 500) {
+    current_millis_button = 0;
     reverse_sweep = !reverse_sweep;
   }
 }
@@ -95,8 +86,8 @@ int main(void) {
   sei();  //Enable the Global Interrupt Bit
 
   while (1) {
-    if ((current_millis - store_millis_led) >= interval) {
-      store_millis_led = current_millis;
+    if (current_millis_led >= interval) {
+      current_millis_led = 0;
       sweep_LED();
     }
 
@@ -115,10 +106,6 @@ int main(void) {
         break;
     }
 
-    while ((current_millis - store_millis_led) < interval) {
-      // make even frequency
-    }
-
     if (gear_button_flag) {
       gear_button_flag = false;
       press_gear_button();
@@ -133,7 +120,8 @@ int main(void) {
 
 
 ISR(TIMER1_COMPA_vect) {
-  current_millis++;
+  current_millis_led++;
+  current_millis_button++;
 }
 
 ISR(INT0_vect) {

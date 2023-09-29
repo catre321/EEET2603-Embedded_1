@@ -1,6 +1,11 @@
 #include <avr/io.h>
 #include <avr/interrupt.h>
 
+/*
+  LED = PORTB5
+  BUTTON = PORTD2 (INT0)
+*/
+
 volatile bool fiveHundredHz_elapsed = false;
 volatile bool fiveHz_elapsed = false;
 volatile bool button_pressed = false;

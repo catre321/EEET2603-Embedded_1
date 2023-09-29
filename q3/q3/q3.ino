@@ -2,6 +2,7 @@
 #include <avr/interrupt.h>
 
 #define CYCLES (16 * 2)
+#define DEBOUNCE_INTERVAL 5 //500ms
 
 /*
   GPIO1 = PORTB1
@@ -14,7 +15,6 @@ volatile uint8_t number_cycles = 0;
 volatile uint8_t current_oneHundred_millis = 0;
 
 volatile bool timer1_flag = false;
-volatile bool last_timer1_flag = false;
 
 volatile bool button_press_flag = false;
 volatile bool button_pressed = false;
@@ -44,7 +44,7 @@ void turn_off_all_GPIO() {
 }
 
 void init_timer1_GPIO() {
-  if (current_oneHundred_millis > 5) {
+  if (current_oneHundred_millis > DEBOUNCE_INTERVAL) {
     current_oneHundred_millis = 0;
 
     PORTB |= (1 << PORTB1);  // set PORTB1 high immediately
@@ -53,28 +53,26 @@ void init_timer1_GPIO() {
     current_low = true;
     button_pressed = true;
     timer1_flag = false;
-    last_timer1_flag = false;
   }
 }
 
 void generate_PWM_PORTB2_cycles() {
-  if (timer1_flag != last_timer1_flag) {
-    last_timer1_flag = timer1_flag;
+  if (timer1_flag) {
+    timer1_flag = false;
 
     if (current_low) {
       PORTB |= (1 << PORTB2);  // rasing edge
       current_low = false;
       current_high = true;
-      number_cycles++;
-
     } else if (current_high) {
       PORTB &= ~(1 << PORTB2);  // falling edge
       current_low = true;
       current_high = false;
-      number_cycles++;
     }
+    number_cycles++;
   }
 }
+
 
 
 int main(void) {

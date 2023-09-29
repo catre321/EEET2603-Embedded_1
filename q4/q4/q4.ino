@@ -2,8 +2,8 @@
 #include <avr/interrupt.h>
 
 #define CYCLES (16 * 2)
-#define READCYCLES (8)
-#define WRITECYCLES (8)
+#define DEBOUNCE_INTERVAL 50 // ~500ms
+#define RTC_ADDRESS_READ 0x85
 
 
 /*
@@ -15,16 +15,14 @@
 
 volatile uint8_t number_cycles = 0;
 
-volatile uint8_t current_oneHundred_millis = 0;
-volatile uint8_t store_oneHundred_millis = 0;
+volatile uint8_t current_oneTen_millis = 0;
+
 volatile uint8_t bit = 0;
 
 volatile bool timer1_flag = false;
-volatile bool last_timer1_flag = false;
+
 volatile bool button_press_flag = false;
 volatile bool button_pressed = false;
-volatile bool last_button_pressed = false;
-
 
 volatile bool send = false;
 volatile bool read = false;
@@ -40,7 +38,7 @@ volatile bool falling_edge = false;
 void init_timer1() {
   TCCR1B |= (1 << WGM12);   // Turn on the CTC mode
   TCCR1B |= (1 << CS12);    // Set up prescaler of 256
-  OCR1A = 6250;             // Set CTC compare value to 5Hz(100ms interval) at 16 MHz AVR clock , with a prescaler of 256 (no -1 because set the counter to 0)
+  OCR1A = 625;              // Set CTC compare value to (10ms interval) at 16 MHz AVR clock , with a prescaler of 256 (no -1 because set the counter to 0)
   TIFR1 &= ~(1 << OCF1A);   // set flag=0
   TIMSK1 |= (1 << OCIE1A);  // Enable Output Compare A Match Interrupt
 }
@@ -59,8 +57,8 @@ void turn_off_all_GPIO() {
 }
 
 void init_send_data() {
-  if (current_oneHundred_millis > 5) {
-    current_oneHundred_millis = 0;
+  if (current_oneTen_millis > DEBOUNCE_INTERVAL) {
+    current_oneTen_millis = 0;
 
     PORTB |= (1 << PORTB1);  // set RST high immediately
     DDRB |= (1 << DDB3);     // Set port DAT as ouput
@@ -71,38 +69,37 @@ void init_send_data() {
     falling_edge = true;  // to set DAT at bit 0
     send = true;
     timer1_flag = false;
-    last_timer1_flag = false;
+  }
+}
+
+void set_PORTB2() {
+  if (current_low) {
+    PORTB |= (1 << PORTB2);  // rasing edge
+    current_low = false;
+    current_high = true;
+    raising_edge = true;
+    falling_edge = false;
+
+  } else if (current_high) {
+    PORTB &= ~(1 << PORTB2);  // falling edge
+    current_low = true;
+    current_high = false;
+    raising_edge = false;
+    falling_edge = true;
   }
 }
 
 void generate_PWM_PORTB2_cycles() {
-  if (timer1_flag != last_timer1_flag) {
-    last_timer1_flag = timer1_flag;
-
-    if (current_low) {
-      PORTB |= (1 << PORTB2);  // rasing edge
-      current_low = false;
-      current_high = true;
-      raising_edge = true;
-      falling_edge = false;
-      number_cycles++;
-
-    } else if (current_high) {
-      PORTB &= ~(1 << PORTB2);  // falling edge
-      current_low = true;
-      current_high = false;
-      raising_edge = false;
-      falling_edge = true;
-      number_cycles++;
+  if (timer1_flag) {
+    timer1_flag = false;
+    if (number_cycles < CYCLES) {
+      set_PORTB2();
     }
+    number_cycles++;
   }
 }
 
-void set_port(bool send_bit) {
-  Serial.print("Bit ");
-  Serial.print(bit);
-  Serial.print(": ");
-  Serial.println(send_bit);
+void set_PORTB3(bool send_bit) {
   if (!send_bit) {
     PORTB &= ~(1 << PORTB3);
   } else {
@@ -118,7 +115,7 @@ void send_data(unsigned char value) {
     DDRB &= ~(1 << DDB3);  // Set port DAT as input
   }
   if (falling_edge) {  // mean that data has been send
-    set_port((value >> bit) & 1);
+    set_PORTB3((value >> bit) & 1);
     falling_edge = false;
     bit++;
   }
@@ -129,8 +126,6 @@ int main(void) {
   PORTB = 0x00;                                       //set low to all PORTB
   DDRD &= ~(1 << DDD2);                               //For button
 
-  Serial.begin(9600);
-
   init_timer1();
   init_ex_interrupt0();
 
@@ -139,6 +134,7 @@ int main(void) {
   while (1) {
     if (number_cycles > CYCLES) {
       turn_off_all_GPIO();
+      DDRB &= ~(1 << DDB3); // set to PORTB3 as input
     }
 
     if (button_pressed) {
@@ -146,7 +142,7 @@ int main(void) {
     }
 
     if (send) {
-      send_data(0x87);
+      send_data(RTC_ADDRESS_READ);
     }
 
     if (button_press_flag) {
@@ -160,7 +156,7 @@ int main(void) {
 
 
 ISR(TIMER1_COMPA_vect) {
-  current_oneHundred_millis++;
+  current_oneTen_millis++;
   timer1_flag = !timer1_flag;
 }
 
